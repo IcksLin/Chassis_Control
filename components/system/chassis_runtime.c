@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "motor_board_uart.h"
+#include "imu_web_runtime.h"
 
 #define MOTOR_UART_NUM 1
 #define MOTOR_TX_GPIO 17
@@ -94,6 +95,7 @@ static void console_task(void *arg)
 
 esp_err_t chassis_runtime_start(void)
 {
+    ESP_RETURN_ON_ERROR(imu_web_runtime_start(), TAG, "IMU/web initialization");
     ESP_RETURN_ON_ERROR(chassis_hal_init(WHEEL_DIRECTION, COMMAND_TIMEOUT_MS), TAG, "HAL initialization");
     const motor_board_uart_config_t config = {
         .uart_num = MOTOR_UART_NUM, .tx_gpio = MOTOR_TX_GPIO,

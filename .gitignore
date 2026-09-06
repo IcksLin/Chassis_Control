@@ -1,1 +1,21 @@
-/build
+# ESP-IDF generated output
+/build/
+/managed_components/
+/dependencies.lock
+/sdkconfig.old
+
+# Local machine and editor state
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local secrets (keep the corresponding .example file tracked)
+/components/system/private_config.h
+
+# Runtime captures and temporary files
+*.log
+*.csv
+/tmp/

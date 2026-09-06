@@ -1,1 +1,2 @@
-idf_component_register(SRCS "motor_board_uart.c" INCLUDE_DIRS "include" REQUIRES esp_driver_uart)
+idf_component_register(SRCS "motor_board_uart.c" "imu963ra.c"
+                       INCLUDE_DIRS "include" REQUIRES esp_driver_uart esp_driver_i2c)
