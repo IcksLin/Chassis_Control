@@ -1,5 +1,0 @@
--mlongcalls
--fno-builtin-memcpy
--fno-builtin-memset
--fno-builtin-bzero
-"-specs=/home/Anan/Development/Project/ESP32_Project/Chassis_Control/build/specs/picolibc.specs"
