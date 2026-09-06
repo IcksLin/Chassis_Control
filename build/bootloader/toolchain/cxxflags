@@ -1,0 +1,6 @@
+"-specs=/home/Anan/Development/Project/ESP32_Project/Chassis_Control/build/bootloader/specs/picolibc.specs"
+-mlongcalls
+-fno-builtin-memcpy
+-fno-builtin-memset
+-fno-builtin-bzero
+-fno-rtti

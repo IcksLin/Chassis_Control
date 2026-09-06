@@ -1,0 +1,2 @@
+source /home/Anan/Development/Project/ESP32_Project/Chassis_Control/build/gdbinit/symbols
+source /home/Anan/Development/Project/ESP32_Project/Chassis_Control/build/gdbinit/connect

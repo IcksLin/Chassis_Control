@@ -1,0 +1,315 @@
+Command: /home/Anan/.espressif/python_env/idf6.1_py3.14_env/bin/python /home/Anan/Development/ESP32/v6.1/esp-idf/tools/idf_monitor.py -p /dev/ttyACM0 -b 115200 --toolchain-prefix xtensa-esp32s3-elf- --target esp32s3 --revision 0 /home/Anan/Development/Project/ESP32_Project/Chassis_Control/build/chassis_control.elf /home/Anan/Development/Project/ESP32_Project/Chassis_Control/build/bootloader/bootloader.elf -m '/home/Anan/.espressif/python_env/idf6.1_py3.14_env/bin/python' '/home/Anan/Development/ESP32/v6.1/esp-idf/tools/idf.py' '-p' '/dev/ttyACM0'
+=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR= logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x14f0
+load:0x403c8700,len:0xde4
+load:0x403cb700,len:0x2f58
+entry 0x403c8904
+[0;32mI (24) boot: ESP-IDF v6.1 2nd stage bootloader[0m
+[0;32mI (25) boot: compile time Sep  6 2026 19:32:54[0m
+[0;32mI (25) boot: Multicore bootloader[0m
+[0;32mI (25) boot: chip revision: v0.2[0m
+[0;32mI (27) boot: efuse block revision: v1.3[0m
+[0;32mI (31) boot.esp32s3: Boot SPI Speed : 80MHz[0m
+[0;32mI (35) boot.esp32s3: SPI Mode       : DIO[0m
+[0;32mI (39) boot.esp32s3: SPI Flash Size : 2MB[0m
+[0;32mI (42) boot: Enabling RNG early entropy source...[0m
+[0;32mI (47) boot: Partition Table:[0m
+[0;32mI (50) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (56) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (62) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (69) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (75) boot: End of partition table[0m
+[0;32mI (79) esp_image: segment 0: paddr=00010020 vaddr=3c020020 size=0aec0h ( 44736) map[0m
+[0;32mI (94) esp_image: segment 1: paddr=0001aee8 vaddr=3fc90e00 size=031d8h ( 12760) load[0m
+[0;32mI (97) esp_image: segment 2: paddr=0001e0c8 vaddr=40374000 size=01f50h (  8016) load[0m
+[0;32mI (103) esp_image: segment 3: paddr=00020020 vaddr=42000020 size=15c70h ( 89200) map[0m
+[0;32mI (125) esp_image: segment 4: paddr=00035c98 vaddr=40375f50 size=0ae7ch ( 44668) load[0m
+[0;32mI (135) esp_image: segment 5: paddr=00040b1c vaddr=50000000 size=00024h (    36) load[0m
+[0;32mI (141) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (141) boot: Disabling RNG early entropy source...[0m
+[0;32mI (153) cpu_start: Multicore app[0m
+[0;32mI (161) cpu_start: GPIO 44 and 43 are used as console UART I/O pins[0m
+[0;32mI (162) cpu_start: Pro cpu start user code[0m
+[0;32mI (162) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (164) app_init: Application information:[0m
+[0;32mI (168) app_init: Project name:     chassis_control[0m
+[0;32mI (172) app_init: App version:      1[0m
+[0;32mI (176) app_init: Compile time:     Sep  6 2026 19:32:55[0m
+[0;32mI (181) app_init: ELF file SHA256:  9fdbb43b6...[0m
+[0;32mI (185) app_init: ESP-IDF:          v6.1[0m
+[0;32mI (189) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (192) efuse_init: Max chip rev:     v0.99 [0m
+[0;32mI (196) efuse_init: Chip rev:         v0.2[0m
+[0;32mI (200) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (207) heap_init: At 3FC94A20 len 00054CF0 (339 KiB): RAM[0m
+[0;32mI (212) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[0;32mI (217) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[0;32mI (222) heap_init: At 600FE000 len 00001FE8 (7 KiB): RTCRAM[0m
+[0;32mI (228) spi_flash: detected chip: generic[0m
+[0;32mI (231) spi_flash: flash io: dio[0m
+[0;33mW (234) spi_flash: Detected size(16384k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (247) sleep_gpio: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (253) sleep_gpio: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (260) main_task: Started on CPU0[0m
+[0;32mI (260) main_task: Calling app_main()[0m
+[0;32mI (320) chassis: motor UART: TX GPIO17, RX GPIO18, 115200 8N1[0m
+[0;32mI (320) chassis: 50 Hz forwarding enabled; 500 ms command watchdog enabled[0m
+Ready. Lift the chassis clear of the floor, then enter 't' to run the test.
+During the test, enter any character to stop immediately.
+[0;32mI (330) main_task: Returned from app_main()[0m
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+TEST START: one wheel at a time; send any character to abort.
+TEST wheel 1: right_rear/M1, command=+120 mm/s
+ENC logical RR=4 RF=0 LR=0 LF=0
+ENC logical RR=5 RF=0 LR=0 LF=0
+ENC logical RR=6 RF=0 LR=0 LF=0
+ENC logical RR=6 RF=0 LR=0 LF=0
+ENC logical RR=7 RF=0 LR=0 LF=0
+ENC logical RR=7 RF=0 LR=0 LF=0
+ENC logical RR=8 RF=0 LR=0 LF=0
+ENC logical RR=7 RF=0 LR=0 LF=0
+ENC logical RR=4 RF=0 LR=0 LF=0
+ENC logical RR=2 RF=0 LR=0 LF=0
+ENC logical RR=3 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+TEST wheel 2: right_front/M2, command=+120 mm/s
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=4 LR=0 LF=0
+ENC logical RR=0 RF=6 LR=0 LF=0
+ENC logical RR=-1 RF=8 LR=0 LF=0
+ENC logical RR=0 RF=9 LR=0 LF=0
+ENC logical RR=0 RF=8 LR=0 LF=0
+ENC logical RR=0 RF=9 LR=0 LF=0
+ENC logical RR=0 RF=8 LR=0 LF=0
+ENC logical RR=0 RF=8 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=1 LR=0 LF=0
+ENC logical RR=0 RF=2 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+TEST wheel 3: left_rear/M3, command=+120 mm/s
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=4 LF=0
+ENC logical RR=0 RF=0 LR=6 LF=0
+ENC logical RR=0 RF=0 LR=7 LF=0
+ENC logical RR=0 RF=0 LR=8 LF=0
+ENC logical RR=0 RF=0 LR=7 LF=0
+ENC logical RR=0 RF=0 LR=8 LF=0
+ENC logical RR=0 RF=0 LR=7 LF=0
+ENC logical RR=0 RF=0 LR=7 LF=0
+ENC logical RR=0 RF=0 LR=1 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=1 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+TEST wheel 4: left_front/M4, command=+120 mm/s
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=4
+ENC logical RR=0 RF=0 LR=1 LF=7
+ENC logical RR=0 RF=0 LR=0 LF=9
+ENC logical RR=0 RF=0 LR=0 LF=9
+ENC logical RR=0 RF=0 LR=0 LF=9
+ENC logical RR=0 RF=0 LR=0 LF=10
+ENC logical RR=0 RF=0 LR=0 LF=8
+ENC logical RR=0 RF=0 LR=0 LF=2
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+TEST COMPLETE; all wheels stopped.
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
+ENC logical RR=0 RF=0 LR=0 LF=0
