@@ -19,3 +19,6 @@
 *.log
 *.csv
 /tmp/
+
+# Local engineering notes (kept beside the firmware but not versioned)
+/docs/ODOMETRY_AND_LOCALIZATION_PLAN.md

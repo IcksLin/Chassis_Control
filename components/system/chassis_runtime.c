@@ -1,3 +1,7 @@
+/**
+ * @file chassis_runtime.c
+ * @brief 底盘设备初始化、50 Hz 命令转发、反馈接收与单轮测试任务
+ */
 #include "chassis_runtime.h"
 
 #include <inttypes.h>
@@ -9,6 +13,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "imu963ra.h"
 #include "motor_board_uart.h"
 #include "imu_web_runtime.h"
 
@@ -18,6 +23,8 @@
 #define MOTOR_BAUD_RATE 115200
 #define FORWARD_PERIOD_MS 20
 #define COMMAND_TIMEOUT_MS 500
+#define PERIPHERAL_SETTLE_MS 200
+#define TASK_START_GUARD_MS 200
 #define TEST_SPEED_MM_S 120
 #define TEST_RUN_MS 3000
 #define TEST_STOP_MS 500
@@ -26,7 +33,14 @@ static const char *TAG = "chassis_runtime";
 static volatile bool s_test_running;
 static volatile bool s_test_abort;
 static const int8_t WHEEL_DIRECTION[CHASSIS_WHEEL_COUNT] = {1, 1, 1, 1};
+static bool s_peripherals_initialized;
+static bool s_services_initialized;
+static bool s_tasks_started;
 
+/**
+ * @brief 以 50 Hz 将 HAL 目标速度转发给电机下位机
+ * @param arg FreeRTOS 任务参数，当前未使用
+ */
 static void forward_task(void *arg)
 {
     TickType_t wake = xTaskGetTickCount();
@@ -38,6 +52,10 @@ static void forward_task(void *arg)
     }
 }
 
+/**
+ * @brief 接收下位机反馈并更新逻辑轮编码器增量
+ * @param arg FreeRTOS 任务参数，当前未使用
+ */
 static void receive_task(void *arg)
 {
     int64_t last_report_us = 0;
@@ -56,11 +74,19 @@ static void receive_task(void *arg)
     }
 }
 
+/**
+ * @brief 同时清零 HAL 目标速度并向下位机发送立即停止命令
+ */
 static void stop_all(void) { chassis_hal_stop(); motor_board_uart_stop(); }
 
 /*
 * @brief 轮胎功能测试函数
 */
+/**
+ * @brief 按逻辑编号依次运行四轮功能检测
+ * @param arg FreeRTOS 任务参数，当前未使用
+ * @note 仅在串口明确输入 t 时创建，结束或中止时强制发送零速。
+ */
 static void sequential_test_task(void *arg)
 {
     puts("TEST START: one wheel at a time; send any character to abort.");
@@ -80,6 +106,10 @@ static void sequential_test_task(void *arg)
     puts("TEST COMPLETE; all wheels stopped."); s_test_running = false; vTaskDelete(NULL);
 }
 
+/**
+ * @brief 监听串口控制字符并管理单轮检测任务
+ * @param arg FreeRTOS 任务参数，当前未使用
+ */
 static void console_task(void *arg)
 {
     puts("Ready. Lift the chassis clear of the floor, then enter 't' to run the test.");
@@ -96,23 +126,76 @@ static void console_task(void *arg)
     }
 }
 
-esp_err_t chassis_runtime_start(void)
+/**
+ * @brief 第一阶段：初始化所有物理外设
+ * @return esp_err_t ESP_OK 表示 IMU 和电机串口均初始化成功
+ * @note 本阶段不创建任何本工程 FreeRTOS 任务；配置完成后等待 200 ms，
+ *       稳定期结束才置位外设就绪标志，防止服务提前访问硬件。
+ */
+esp_err_t chassis_runtime_init_peripherals(void)
 {
-    ESP_RETURN_ON_ERROR(imu_web_runtime_start(), TAG, "IMU/web initialization");
-    ESP_RETURN_ON_ERROR(chassis_hal_init(WHEEL_DIRECTION, COMMAND_TIMEOUT_MS), TAG, "HAL initialization");
+    if (s_peripherals_initialized) return ESP_OK;
+    ESP_RETURN_ON_ERROR(imu963ra_init(), TAG, "IMU peripheral initialization");
+    ESP_LOGI(TAG, "IMU963RA found at 0x%02x; SDA GPIO8, SCL GPIO9", imu963ra_address());
     const motor_board_uart_config_t config = {
         .uart_num = MOTOR_UART_NUM, .tx_gpio = MOTOR_TX_GPIO,
         .rx_gpio = MOTOR_RX_GPIO, .baud_rate = MOTOR_BAUD_RATE,
     };
     ESP_RETURN_ON_ERROR(motor_board_uart_init(&config), TAG, "motor UART initialization");
-    stop_all(); vTaskDelay(pdMS_TO_TICKS(50));
+    ESP_RETURN_ON_ERROR(motor_board_uart_stop(), TAG, "initial motor stop");
+    vTaskDelay(pdMS_TO_TICKS(PERIPHERAL_SETTLE_MS));
+    s_peripherals_initialized = true;
+    return ESP_OK;
+}
+
+/**
+ * @brief 第二阶段：初始化软件 HAL、数据状态、Wi-Fi 和 HTTP 服务
+ * @return esp_err_t ESP_OK 表示所有服务初始化成功
+ * @note 必须先完成外设阶段；本阶段不创建本工程的周期任务。
+ */
+esp_err_t chassis_runtime_init_services(void)
+{
+    if (!s_peripherals_initialized) return ESP_ERR_INVALID_STATE;
+    if (s_services_initialized) return ESP_OK;
+    ESP_RETURN_ON_ERROR(chassis_hal_init(WHEEL_DIRECTION, COMMAND_TIMEOUT_MS), TAG, "HAL service initialization");
+    ESP_RETURN_ON_ERROR(imu_runtime_service_init(), TAG, "IMU state service initialization");
+    ESP_RETURN_ON_ERROR(wifi_service_init(), TAG, "Wi-Fi service initialization");
+    ESP_RETURN_ON_ERROR(imu_web_service_init(), TAG, "IMU web service initialization");
     ESP_RETURN_ON_ERROR(motor_board_uart_set_upload(false, true, false), TAG, "encoder upload setup");
     ESP_LOGI(TAG, "motor UART: TX GPIO%d, RX GPIO%d, 115200 8N1", MOTOR_TX_GPIO, MOTOR_RX_GPIO);
     ESP_LOGI(TAG, "50 Hz forwarding enabled; 500 ms command watchdog enabled");
+    s_services_initialized = true;
+    return ESP_OK;
+}
+
+/**
+ * @brief 第三阶段：统一启动本工程的中断或 FreeRTOS 线程
+ * @return esp_err_t ESP_OK 表示全部周期任务创建成功
+ * @note 外设与服务全部就绪后统一等待 200 ms，再启动任何本工程任务。
+ */
+esp_err_t chassis_runtime_start_tasks(void)
+{
+    if (!s_services_initialized) return ESP_ERR_INVALID_STATE;
+    if (s_tasks_started) return ESP_OK;
+    vTaskDelay(pdMS_TO_TICKS(TASK_START_GUARD_MS));
+    ESP_RETURN_ON_ERROR(imu_web_runtime_start_sampling(), TAG, "IMU task start");
     if (xTaskCreate(receive_task, "motor_rx", 4096, NULL, 5, NULL) != pdPASS ||
         xTaskCreate(forward_task, "motor_forward", 3072, NULL, 4, NULL) != pdPASS ||
         xTaskCreate(console_task, "console", 4096, NULL, 3, NULL) != pdPASS) {
         stop_all(); return ESP_ERR_NO_MEM;
     }
+    s_tasks_started = true;
+    return ESP_OK;
+}
+
+/**
+ * @brief 按“外设→服务→中断或线程”执行统一初始化流水线
+ * @return esp_err_t ESP_OK 表示三个初始化阶段均成功
+ */
+esp_err_t chassis_runtime_start(void)
+{
+    ESP_RETURN_ON_ERROR(chassis_runtime_init_peripherals(), TAG, "peripheral phase");
+    ESP_RETURN_ON_ERROR(chassis_runtime_init_services(), TAG, "service phase");
+    ESP_RETURN_ON_ERROR(chassis_runtime_start_tasks(), TAG, "task phase");
     return ESP_OK;
 }
