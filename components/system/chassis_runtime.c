@@ -19,7 +19,7 @@
 #define FORWARD_PERIOD_MS 20
 #define COMMAND_TIMEOUT_MS 500
 #define TEST_SPEED_MM_S 120
-#define TEST_RUN_MS 800
+#define TEST_RUN_MS 3000
 #define TEST_STOP_MS 500
 
 static const char *TAG = "chassis_runtime";
@@ -50,7 +50,7 @@ static void receive_task(void *arg)
             chassis_encoder_delta_t encoder;
             chassis_hal_get_encoder_delta(&encoder);
             last_report_us = now;
-            printf("ENC logical RR=%" PRId32 " RF=%" PRId32 " LR=%" PRId32 " LF=%" PRId32 "\n",
+            printf("ENC logical RR=%" PRId32 " LR=%" PRId32 " RF=%" PRId32 " LF=%" PRId32 "\n",
                    encoder.delta[0], encoder.delta[1], encoder.delta[2], encoder.delta[3]);
         }
     }
@@ -58,6 +58,9 @@ static void receive_task(void *arg)
 
 static void stop_all(void) { chassis_hal_stop(); motor_board_uart_stop(); }
 
+/*
+* @brief 轮胎功能测试函数
+*/
 static void sequential_test_task(void *arg)
 {
     puts("TEST START: one wheel at a time; send any character to abort.");

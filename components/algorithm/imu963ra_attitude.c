@@ -24,6 +24,7 @@ static FusionQuaternion conjugate(FusionQuaternion q)
 void imu963ra_attitude_reset(void)
 {
     const FusionAhrsSettings settings = {
+        .sampleRate = 100.0f,
         .convention = FusionConventionNwu,
         .gain = 0.5f,
         .gyroscopeRange = 2000.0f,

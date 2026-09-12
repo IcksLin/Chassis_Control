@@ -15,7 +15,7 @@ the motor board's UART frame format.
 - ESP32-S3 GPIO17 (TX) -> motor-board RX2
 - ESP32-S3 GPIO18 (RX) <- motor-board TX2
 - Common GND is required
-- Logical wheels: 1 right-rear/M1, 2 right-front/M2, 3 left-rear/M3, 4 left-front/M4
+- Logical wheels: 1 right-rear/M1, 2 left-rear/M2, 3 right-front/M3, 4 left-front/M4
 - Speed forwarding: 50 Hz
 - Command watchdog: 500 ms, then all zero
 

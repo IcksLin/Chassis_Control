@@ -20,13 +20,15 @@
 
 #define WIFI_READY BIT0
 #define SAMPLE_PERIOD_MS 10
-#define CALIBRATION_SAMPLES 200
+#define CALIBRATION_SAMPLES 500
+#define GYRO_WARMUP_MS 2000
+#define IMU_TASK_PRIORITY 20
+#define IMU_TASK_CORE 1
 
 static const char *TAG = "imu_web";
 static EventGroupHandle_t s_events;
 static SemaphoreHandle_t s_lock;
 static imu963ra_attitude_t s_attitude;
-static imu963ra_sample_t s_sample;
 static bool s_ready;
 
 static const char INDEX_HTML[] =
@@ -73,20 +75,16 @@ static esp_err_t index_handler(httpd_req_t *req)
 static esp_err_t attitude_handler(httpd_req_t *req)
 {
     imu963ra_attitude_t attitude;
-    imu963ra_sample_t sample;
     bool ready;
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    attitude = s_attitude; sample = s_sample; ready = s_ready;
+    attitude = s_attitude; ready = s_ready;
     xSemaphoreGive(s_lock);
     char json[384];
     snprintf(json, sizeof(json),
         "{\"ready\":%s,\"roll\":%.3f,\"pitch\":%.3f,\"yaw\":%.3f,"
-        "\"qw\":%.6f,\"qx\":%.6f,\"qy\":%.6f,\"qz\":%.6f,"
-        "\"ax\":%.4f,\"ay\":%.4f,\"az\":%.4f,\"gx\":%.3f,\"gy\":%.3f,\"gz\":%.3f,\"address\":%u}",
+        "\"qw\":%.6f,\"qx\":%.6f,\"qy\":%.6f,\"qz\":%.6f}",
         ready ? "true" : "false", attitude.roll_deg, attitude.pitch_deg, attitude.yaw_deg,
-        attitude.quaternion_w, attitude.quaternion_x, attitude.quaternion_y, attitude.quaternion_z,
-        sample.accel_g[0], sample.accel_g[1], sample.accel_g[2],
-        sample.gyro_dps[0], sample.gyro_dps[1], sample.gyro_dps[2], imu963ra_address());
+        attitude.quaternion_w, attitude.quaternion_x, attitude.quaternion_y, attitude.quaternion_z);
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     return httpd_resp_sendstr(req, json);
@@ -104,31 +102,57 @@ static esp_err_t zero_handler(httpd_req_t *req)
 static void imu_task(void *arg)
 {
     float bias[3] = {0}, acc[3] = {0};
+    unsigned valid_samples = 0;
+    /* LSM6DSR output has a visible start-up transient.  Discard it before
+     * estimating the zero-rate offset or yaw will inherit a false bias. */
+    for (int elapsed = 0; elapsed < GYRO_WARMUP_MS; elapsed += SAMPLE_PERIOD_MS) {
+        imu963ra_sample_t discard;
+        (void)imu963ra_read(&discard);
+        vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+    }
     for (int n = 0; n < CALIBRATION_SAMPLES; ++n) {
         imu963ra_sample_t sample;
         if (imu963ra_read(&sample) == ESP_OK) {
             for (int i = 0; i < 3; ++i) { bias[i] += sample.gyro_dps[i]; acc[i] += sample.accel_g[i]; }
+            valid_samples++;
         }
         vTaskDelay(pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
     }
-    for (int i = 0; i < 3; ++i) { bias[i] /= CALIBRATION_SAMPLES; acc[i] /= CALIBRATION_SAMPLES; }
+    if (valid_samples == 0) {
+        ESP_LOGE(TAG, "gyro calibration failed: no valid samples");
+        vTaskDelete(NULL);
+    }
+    for (int i = 0; i < 3; ++i) { bias[i] /= valid_samples; acc[i] /= valid_samples; }
+    ESP_LOGI(TAG, "gyro bias (%u samples): %.4f, %.4f, %.4f dps",
+             valid_samples, bias[0], bias[1], bias[2]);
     imu963ra_attitude_init_horizontal(acc[0], acc[1], acc[2]);
     imu963ra_attitude_set_gyro_bias_dps(bias[0], bias[1], bias[2]);
     int64_t previous = esp_timer_get_time();
     TickType_t wake = xTaskGetTickCount();
+    uint32_t cycles = 0;
+    float min_dt = 1.0f, max_dt = 0.0f, sum_dt = 0.0f;
     while (true) {
         imu963ra_sample_t sample;
         if (imu963ra_read(&sample) == ESP_OK) {
             int64_t now = esp_timer_get_time();
             float dt = (now - previous) / 1000000.0f;
             previous = now;
+            if (dt < min_dt) min_dt = dt;
+            if (dt > max_dt) max_dt = dt;
+            sum_dt += dt;
+            cycles++;
             xSemaphoreTake(s_lock, portMAX_DELAY);
-            s_sample = sample;
             imu963ra_attitude_update_horizontal(sample.gyro_dps[0], sample.gyro_dps[1], sample.gyro_dps[2],
                                                 sample.accel_g[0], sample.accel_g[1], sample.accel_g[2], dt);
             imu963ra_attitude_get(&s_attitude);
             s_ready = true;
             xSemaphoreGive(s_lock);
+            if (cycles == 500) {
+                ESP_LOGI(TAG, "AHRS rate %.2f Hz, dt min/avg/max %.3f/%.3f/%.3f ms",
+                         500.0f / sum_dt, min_dt * 1000.0f,
+                         sum_dt * 2.0f, max_dt * 1000.0f);
+                cycles = 0; min_dt = 1.0f; max_dt = 0.0f; sum_dt = 0.0f;
+            }
         }
         xTaskDelayUntil(&wake, pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
     }
@@ -141,7 +165,10 @@ esp_err_t imu_web_runtime_start(void)
     if (!s_lock || !s_events) return ESP_ERR_NO_MEM;
     ESP_ERROR_CHECK(imu963ra_init());
     ESP_LOGI(TAG, "IMU963RA found at 0x%02x; SDA GPIO8, SCL GPIO9", imu963ra_address());
-    if (xTaskCreate(imu_task, "imu_sample", 4096, NULL, 6, NULL) != pdPASS) return ESP_ERR_NO_MEM;
+    if (xTaskCreatePinnedToCore(imu_task, "imu_sample", 6144, NULL,
+                                IMU_TASK_PRIORITY, NULL, IMU_TASK_CORE) != pdPASS) {
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {

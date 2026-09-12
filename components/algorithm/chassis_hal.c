@@ -17,7 +17,7 @@ typedef struct {
 
 static chassis_hal_state_t s_hal;
 static const char *const WHEEL_NAMES[CHASSIS_WHEEL_COUNT] = {
-    "right_rear/M1", "right_front/M2", "left_rear/M3", "left_front/M4"
+    "right_rear/M1", "left_rear/M2", "right_front/M3", "left_front/M4"
 };
 
 esp_err_t chassis_hal_init(const int8_t direction[CHASSIS_WHEEL_COUNT], uint32_t timeout_ms)
