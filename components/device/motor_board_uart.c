@@ -10,6 +10,7 @@
 #include "driver/uart.h"
 #include "esp_check.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 #define RX_CHUNK_SIZE 64
 #define FRAME_BUFFER_SIZE 128
@@ -18,6 +19,7 @@ static uart_port_t s_uart = UART_NUM_MAX;
 static char s_frame_buffer[FRAME_BUFFER_SIZE];
 static size_t s_frame_used;
 static bool s_frame_active;
+static SemaphoreHandle_t s_tx_lock;
 
 /**
  * @brief 向电机下位机发送一帧完整 ASCII 协议数据
@@ -26,9 +28,12 @@ static bool s_frame_active;
  */
 static esp_err_t write_frame(const char *frame)
 {
-    if (s_uart == UART_NUM_MAX || !frame) return ESP_ERR_INVALID_STATE;
+    if (s_uart == UART_NUM_MAX || !frame || !s_tx_lock) return ESP_ERR_INVALID_STATE;
     int length = strlen(frame);
-    return uart_write_bytes(s_uart, frame, length) == length ? ESP_OK : ESP_FAIL;
+    xSemaphoreTake(s_tx_lock, portMAX_DELAY);
+    const int written = uart_write_bytes(s_uart, frame, length);
+    xSemaphoreGive(s_tx_lock);
+    return written == length ? ESP_OK : ESP_FAIL;
 }
 
 /**
@@ -40,6 +45,8 @@ esp_err_t motor_board_uart_init(const motor_board_uart_config_t *config)
 {
     if (!config || config->uart_num < 0 || config->uart_num >= UART_NUM_MAX) return ESP_ERR_INVALID_ARG;
     s_uart = (uart_port_t)config->uart_num;
+    if (!s_tx_lock) s_tx_lock = xSemaphoreCreateMutex();
+    if (!s_tx_lock) return ESP_ERR_NO_MEM;
     const uart_config_t uart_config = {
         .baud_rate = config->baud_rate, .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE, .stop_bits = UART_STOP_BITS_1,

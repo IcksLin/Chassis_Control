@@ -18,6 +18,7 @@
 #include "motor_board_uart.h"
 #include "move_control.h"
 #include "imu_web_runtime.h"
+#include "motion_safety.h"
 
 #define MOTOR_UART_NUM 1
 #define MOTOR_TX_GPIO 17
@@ -25,6 +26,7 @@
 #define MOTOR_BAUD_RATE 115200
 #define FORWARD_PERIOD_MS 20
 #define COMMAND_TIMEOUT_MS 500
+#define CONTROL_LEASE_MS 1500
 #define PERIPHERAL_SETTLE_MS 200
 #define TASK_START_GUARD_MS 200
 #define TEST_SPEED_MM_S 120
@@ -49,11 +51,21 @@ static void forward_task(void *arg)
     while (true) {
         chassis_wheel_speeds_t command = {0};
         imu_motion_state_t motion;
-        if (imu_runtime_get_motion_state(&motion) && move_control_update(motion.yaw_deg, motion.gyro_z_dps,
+        const motion_safety_owner_t owner = motion_safety_owner();
+        if (owner == MOTION_SAFETY_OWNER_WEB && imu_runtime_get_motion_state(&motion) &&
+            move_control_update(motion.yaw_deg, motion.gyro_z_dps,
                                                                           motion.roll_deg, motion.pitch_deg, &command))
             (void)chassis_hal_set_wheel_speeds(&command);
+        else if (owner == MOTION_SAFETY_OWNER_NONE || owner == MOTION_SAFETY_OWNER_WEB) {
+            move_control_stop();
+            chassis_hal_stop();
+        }
         chassis_hal_get_motor_commands(&command, NULL);
-        motor_board_uart_set_speeds(command.speed_mm_s);
+        if (motor_board_uart_set_speeds(command.speed_mm_s) != ESP_OK) {
+            motion_safety_lock("motor UART transmit failure");
+            move_control_stop();
+            chassis_hal_stop();
+        }
         xTaskDelayUntil(&wake, pdMS_TO_TICKS(FORWARD_PERIOD_MS));
     }
 }
@@ -68,6 +80,7 @@ static void receive_task(void *arg)
     while (true) {
         motor_board_frame_t frame;
         if (motor_board_uart_read_frame(&frame, 100) != ESP_OK || frame.type != MOTOR_BOARD_FRAME_ENCODER_DELTA) continue;
+        motion_safety_note_feedback();
         chassis_hal_update_encoder_delta(frame.value);
         int64_t now = esp_timer_get_time();
         if (now - last_report_us >= 100000) {
@@ -83,7 +96,13 @@ static void receive_task(void *arg)
 /**
  * @brief 同时清零 HAL 目标速度并向下位机发送立即停止命令
  */
-static void stop_all(void) { chassis_hal_stop(); motor_board_uart_stop(); }
+static void stop_all(void)
+{
+    motion_safety_lock("explicit stop");
+    move_control_stop();
+    chassis_hal_stop();
+    (void)motor_board_uart_stop();
+}
 
 /*
 * @brief 轮胎功能测试函数
@@ -95,12 +114,17 @@ static void stop_all(void) { chassis_hal_stop(); motor_board_uart_stop(); }
  */
 static void sequential_test_task(void *arg)
 {
+    const uint32_t session = (uint32_t)(uintptr_t)arg;
+    uint32_t sequence = 1;
     puts("TEST START: one wheel at a time; send any character to abort.");
     for (chassis_wheel_t wheel = 0; wheel < CHASSIS_WHEEL_COUNT; ++wheel) {
         chassis_wheel_speeds_t speed = {0};
         speed.speed_mm_s[wheel] = TEST_SPEED_MM_S;
         printf("TEST wheel %u: %s, command=+%d mm/s\n", (unsigned)(wheel + 1), chassis_hal_wheel_name(wheel), TEST_SPEED_MM_S);
         for (int elapsed = 0; elapsed < TEST_RUN_MS; elapsed += 50) {
+            if (motion_safety_renew(MOTION_SAFETY_OWNER_TEST, session, sequence++) != ESP_OK) {
+                stop_all(); puts("TEST SAFETY LOCKED; all wheels stopped."); s_test_running = false; vTaskDelete(NULL);
+            }
             chassis_hal_set_wheel_speeds(&speed);
             vTaskDelay(pdMS_TO_TICKS(50));
             if (s_test_abort) {
@@ -123,9 +147,13 @@ static void console_task(void *arg)
     while (true) {
         int ch = getchar();
         if (!s_test_running && (ch == 't' || ch == 'T')) {
+            uint32_t session = 0;
             s_test_abort = false; s_test_running = true;
-            if (xTaskCreate(sequential_test_task, "wheel_test", 4096, NULL, 3, NULL) != pdPASS) {
+            if (motion_safety_acquire(MOTION_SAFETY_OWNER_TEST, &session) != ESP_OK ||
+                xTaskCreate(sequential_test_task, "wheel_test", 4096,
+                            (void *)(uintptr_t)session, 3, NULL) != pdPASS) {
                 s_test_running = false; puts("Could not start test task.");
+                stop_all();
             }
         } else if (s_test_running && ch != EOF) s_test_abort = true;
         else vTaskDelay(pdMS_TO_TICKS(20));
@@ -165,13 +193,14 @@ esp_err_t chassis_runtime_init_services(void)
     if (!s_peripherals_initialized) return ESP_ERR_INVALID_STATE;
     if (s_services_initialized) return ESP_OK;
     ESP_RETURN_ON_ERROR(chassis_hal_init(WHEEL_DIRECTION, COMMAND_TIMEOUT_MS), TAG, "HAL service initialization");
+    ESP_RETURN_ON_ERROR(motion_safety_init(CONTROL_LEASE_MS), TAG, "motion safety service initialization");
     move_control_init();
     ESP_RETURN_ON_ERROR(imu_runtime_service_init(), TAG, "IMU state service initialization");
     ESP_RETURN_ON_ERROR(wifi_service_init(), TAG, "Wi-Fi service initialization");
     ESP_RETURN_ON_ERROR(imu_web_service_init(), TAG, "IMU web service initialization");
     ESP_RETURN_ON_ERROR(motor_board_uart_set_upload(false, true, false), TAG, "encoder upload setup");
     ESP_LOGI(TAG, "motor UART: TX GPIO%d, RX GPIO%d, 115200 8N1", MOTOR_TX_GPIO, MOTOR_RX_GPIO);
-    ESP_LOGI(TAG, "50 Hz forwarding enabled; 500 ms command watchdog enabled");
+    ESP_LOGI(TAG, "50 Hz forwarding; 1500 ms owner lease; continuous zero-speed fail-safe enabled");
     s_services_initialized = true;
     return ESP_OK;
 }

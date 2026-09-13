@@ -15,6 +15,8 @@
  * @note 函数只进行算法计算，不访问硬件；输出仍需经过底盘 HAL 看门狗。
  */
 void move_control_init(void);
+/** @brief 原子清除运动意图，供安全锁和异常路径调用。 */
+void move_control_stop(void);
 void move_control_set_command(float vx, float vy, float rotation, float yaw_deg, int16_t max_speed);
 /** @brief 设置绝对目标航向并进入原地旋转控制。 */
 void move_control_set_heading_target(float yaw_deg, int16_t max_speed);
