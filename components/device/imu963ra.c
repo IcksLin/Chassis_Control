@@ -226,6 +226,8 @@ static esp_err_t hub_configure_magnetometer(void)
     if (err == ESP_OK) err = write_reg(REG_SLV0_CONFIG, SLV0_AUTO_LEN6);
     if (err == ESP_OK) err = write_reg(REG_MASTER_CONFIG, MASTER_DRDY_CONTINUOUS);
     (void)hub_close();
+    /* 给 Sensor Hub 至少一个 ODR 周期建立首帧，避免启动阶段读到全 0/0xff。 */
+    vTaskDelay(pdMS_TO_TICKS(20));
     return err;
 }
 

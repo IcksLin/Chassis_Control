@@ -20,6 +20,7 @@
 #include "freertos/task.h"
 #include "imu963ra.h"
 #include "imu963ra_attitude.h"
+#include "move_control.h"
 #include "nvs_flash.h"
 #include "private_config.h"
 
@@ -40,6 +41,7 @@ static bool s_state_initialized;
 static bool s_wifi_initialized;
 static bool s_web_initialized;
 static bool s_sampling_started;
+static bool s_control_enabled;
 
 static const char INDEX_HTML[] =
 "<!doctype html><html lang='zh-CN'><head><meta charset='utf-8'>"
@@ -52,16 +54,17 @@ static const char INDEX_HTML[] =
 ".card{background:#0d1d29cc;border:1px solid #294457;border-radius:18px;padding:20px;box-shadow:0 20px 50px #0007}"
 "canvas{width:100%;height:390px;display:block}.angles{display:grid;gap:13px}.value{font:600 36px ui-monospace,monospace}.label{color:#91a9b8}"
 ".raw{margin-top:18px;font:14px ui-monospace,monospace;color:#a9c4d3;line-height:1.7}button{border:0;border-radius:10px;padding:11px 18px;background:#30b77b;color:white;font-weight:700;cursor:pointer}"
+"#compass{width:330px;height:330px;border-radius:50%;margin:18px auto;position:relative;display:grid;place-items:center;touch-action:none;user-select:none;background:repeating-conic-gradient(#91a9b8 0 1deg,transparent 1deg 6deg);border:2px solid #37627a}#compass:after{content:'';position:absolute;inset:14px;border-radius:50%;background:#071018}#target,#heading{position:absolute;width:3px;transform-origin:50% 100%;z-index:3}#target{height:155px;bottom:50%;background:#ff4d5f}#heading{height:112px;bottom:50%;background:#55e6a5}#target:before,#heading:before{content:'0';position:absolute;top:-18px;left:-5px;font:bold 13px ui-monospace}#pad{height:240px;width:240px;border:2px solid #37627a;border-radius:50%;position:relative;display:grid;place-items:center;z-index:2;touch-action:none;background:repeating-conic-gradient(#294457 0 1deg,transparent 1deg 30deg),radial-gradient(circle,#163c52,#0d1d29)}#stick{width:72px;height:72px;border-radius:50%;background:#30b77b88;border:2px solid #55e6a5;z-index:4}.mark{position:absolute;color:#91a9b8;font:13px ui-monospace,monospace;z-index:3}.n{top:8px}.e{right:12px}.s{bottom:8px}.w{left:12px}"
 "@media(max-width:700px){.grid{grid-template-columns:1fr}canvas{height:300px}}"
-"</style></head><body><main><div class='top'><div><div class='label'>ESP32-S3 · Hardware I²C</div><h1>IMU963RA 实时姿态</h1></div><div><span id='state'>连接中…</span> <button onclick='zero()'>当前姿态归零</button></div></div>"
-"<div class='grid'><section class='card'><canvas id='view'></canvas></section><section class='card angles'>"
+"</style></head><body><main><div class='top'><div><div class='label'>ESP32-S3 · Hardware I²C</div><h1>IMU963RA 实时姿态</h1></div><div><span id='state'>连接中…</span> <button id='start' onclick='startControl()'>START 控制</button> <button onclick='zero()'>当前姿态归零</button></div></div>"
+"<div id='compass' title='左键拖动外圈设置目标航向'><div id='target'></div><div id='pad' title='右键拖动内圈控制平移'><div id='heading'></div><span class='mark n'>0° 前</span><span class='mark e'>90° 右</span><span class='mark s'>180° 后</span><span class='mark w'>270° 左</span><div id='stick'></div></div></div><div class='label'>红色：目标航向　绿色：当前车头　航向调参 Kp <input id='kp' value='0.04' size='4'> Kd <input id='kd' value='0.006' size='4'> 坡前馈 P <input id='pf' value='0' size='3'> R <input id='rf' value='0' size='3'> <button onclick='tune()'>应用</button></div><div class='grid'><section class='card'><canvas id='view'></canvas></section><section class='card angles'>"
 "<div><div class='label'>ROLL 横滚</div><div class='value' id='roll'>--°</div></div><div><div class='label'>PITCH 俯仰</div><div class='value' id='pitch'>--°</div></div><div><div class='label'>YAW 航向</div><div class='value' id='yaw'>--°</div></div>"
 "<div class='raw' id='raw'>等待传感器…</div></section></div></main><script>"
 "const c=document.querySelector('#view'),x=c.getContext('2d');let a={roll:0,pitch:0,yaw:0};"
 "function R(p){let [X,Y,Z]=p,r=a.roll*Math.PI/180,q=a.pitch*Math.PI/180,y=a.yaw*Math.PI/180;let c1=Math.cos(r),s1=Math.sin(r),c2=Math.cos(q),s2=Math.sin(q),c3=Math.cos(y),s3=Math.sin(y);let y1=Y*c1-Z*s1,z1=Y*s1+Z*c1,x2=X*c2+z1*s2,z2=-X*s2+z1*c2;return[x2*c3-y1*s3,x2*s3+y1*c3,z2]}"
 "function draw(){let d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*d;c.height=h*d;x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,w,h);let v=[[-1,-.55,-1],[1,-.55,-1],[1,.55,-1],[-1,.55,-1],[-1,-.55,1],[1,-.55,1],[1,.55,1],[-1,.55,1]].map(p=>{let r=R(p),s=105/(3+r[2]);return[w/2+r[0]*s,h/2-r[1]*s]});let e=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];x.strokeStyle='#55e6a5';x.lineWidth=3;e.forEach(([i,j])=>{x.beginPath();x.moveTo(...v[i]);x.lineTo(...v[j]);x.stroke()});x.fillStyle='#32a7ff66';x.beginPath();[4,5,6,7].forEach((i,n)=>n?x.lineTo(...v[i]):x.moveTo(...v[i]));x.closePath();x.fill();requestAnimationFrame(draw)}draw();"
-"async function poll(){try{let d=await(await fetch('/api/attitude',{cache:'no-store'})).json();if(d.ready){a=d;['roll','pitch','yaw'].forEach(k=>document.querySelector('#'+k).textContent=d[k].toFixed(2)+'°');document.querySelector('#raw').innerHTML=`ACC g&nbsp; ${d.ax.toFixed(3)}, ${d.ay.toFixed(3)}, ${d.az.toFixed(3)}<br>GYRO °/s&nbsp; ${d.gx.toFixed(2)}, ${d.gy.toFixed(2)}, ${d.gz.toFixed(2)}<br>I²C&nbsp; 0x${d.address.toString(16).toUpperCase()}`;document.querySelector('#state').textContent='实时数据';}else document.querySelector('#state').textContent='静置校准中…';}catch(e){document.querySelector('#state').textContent='连接断开';}setTimeout(poll,50)}poll();"
-"async function zero(){await fetch('/api/zero',{method:'POST'})}</script></body></html>";
+"async function poll(){try{let d=await(await fetch('/api/attitude',{cache:'no-store'})).json();if(d.ready){a=d;heading.style.transform=`rotate(${d.yaw}deg)`;['roll','pitch','yaw'].forEach(k=>document.querySelector('#'+k).textContent=d[k].toFixed(2)+'°');document.querySelector('#raw').innerHTML=`ACC g&nbsp; ${d.ax.toFixed(3)}, ${d.ay.toFixed(3)}, ${d.az.toFixed(3)}<br>GYRO °/s&nbsp; ${d.gx.toFixed(2)}, ${d.gy.toFixed(2)}, ${d.gz.toFixed(2)}<br>MAG G&nbsp; ${d.mx.toFixed(4)}, ${d.my.toFixed(4)}, ${d.mz.toFixed(4)} (${d.mag_valid?'有效':'等待'})<br>I²C&nbsp; 0x${d.address.toString(16).toUpperCase()}`;document.querySelector('#state').textContent='实时数据';}else document.querySelector('#state').textContent='静置校准中…';}catch(e){document.querySelector('#state').textContent='连接断开';}setTimeout(poll,50)}poll();"
+"let compass=document.querySelector('#compass'),pad=document.querySelector('#pad'),stick=document.querySelector('#stick'),target=document.querySelector('#target'),heading=document.querySelector('#heading'),drag=false,headingDrag=false,enabled=false;function post(u,o){if(!enabled&&u!='/api/control/start')return;fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).catch(()=>{})}async function startControl(){let r=await fetch('/api/control/start',{method:'POST'});if(r.ok){enabled=true;start.textContent='控制已启用';start.disabled=true;target.style.transform='rotate(0deg)'}}function send(vx,vy){post('/api/move',{vx:vx,vy:vy,w:0,max:300})}function tune(){post('/api/tuning',{kp:+kp.value,kd:+kd.value,pitch:+pf.value,roll:+rf.value})}compass.oncontextmenu=e=>e.preventDefault();compass.onmousedown=e=>{if(enabled&&e.button===0&&e.target!==stick){headingDrag=true;setHeading(e)}};pad.onmousedown=e=>{if(enabled&&e.button===2){drag=true;move(e);e.stopPropagation()}};window.onmousemove=e=>{if(drag)move(e);if(headingDrag)setHeading(e)};window.onmouseup=e=>{if(drag){drag=false;stick.style.transform='translate(0,0)';send(0,0)}headingDrag=false};function setHeading(e){let r=compass.getBoundingClientRect(),deg=Math.atan2(e.clientX-(r.left+r.width/2),-(e.clientY-(r.top+r.height/2)))*180/Math.PI;target.style.transform=`rotate(${deg}deg)`;post('/api/heading',{yaw:deg})}function move(e){let r=pad.getBoundingClientRect(),x=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2))),y=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/(r.height/2)));stick.style.transform=`translate(${x*55}px,${y*55}px)`;send(-y,x)}async function zero(){await fetch('/api/zero',{method:'POST'})}</script></body></html>";
 
 /**
  * @brief 处理 Wi-Fi 连接、断线重连和 DHCP 地址获取事件
@@ -125,6 +128,31 @@ static esp_err_t attitude_handler(httpd_req_t *req)
     return httpd_resp_sendstr(req, json);
 }
 
+bool imu_runtime_get_yaw(float *yaw_deg)
+{
+    if (!yaw_deg || !s_lock) return false;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    const bool ready = s_ready;
+    if (ready) *yaw_deg = s_attitude.yaw_deg;
+    xSemaphoreGive(s_lock);
+    return ready;
+}
+
+bool imu_runtime_get_motion_state(imu_motion_state_t *state)
+{
+    if (!state || !s_lock) return false;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    const bool ready = s_ready;
+    if (ready) {
+        state->roll_deg = s_attitude.roll_deg;
+        state->pitch_deg = s_attitude.pitch_deg;
+        state->yaw_deg = s_attitude.yaw_deg;
+        state->gyro_z_dps = s_sample.gyro_dps[2];
+    }
+    xSemaphoreGive(s_lock);
+    return ready;
+}
+
 /**
  * @brief 将当前姿态设置为网页显示零点
  * @param req HTTP 请求对象
@@ -136,6 +164,73 @@ static esp_err_t zero_handler(httpd_req_t *req)
     imu963ra_attitude_zero_current();
     imu963ra_attitude_get(&s_attitude);
     xSemaphoreGive(s_lock);
+    return httpd_resp_sendstr(req, "ok");
+}
+
+static esp_err_t move_handler(httpd_req_t *req)
+{
+    if (!s_control_enabled) return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "control disabled");
+    char body[128] = {0}; int n = httpd_req_recv(req, body, sizeof(body)-1);
+    float vx=0, vy=0, w=0; int max=300;
+    if (n <= 0 || sscanf(body, "{\"vx\":%f,\"vy\":%f,\"w\":%f,\"max\":%d}", &vx,&vy,&w,&max) < 3)
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid move");
+    imu963ra_attitude_t attitude;
+    xSemaphoreTake(s_lock, portMAX_DELAY); attitude = s_attitude; xSemaphoreGive(s_lock);
+    chassis_wheel_speeds_t speeds;
+    move_control_set_command(vx, vy, w, attitude.yaw_deg, max);
+    if (!move_control_update(attitude.yaw_deg, 0.0f, attitude.roll_deg, attitude.pitch_deg, &speeds)) chassis_hal_stop();
+    else if (chassis_hal_set_wheel_speeds(&speeds) != ESP_OK)
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "speed");
+    return httpd_resp_sendstr(req, "ok");
+}
+
+static esp_err_t tuning_handler(httpd_req_t *req)
+{
+    if (!s_control_enabled) return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "control disabled");
+    char body[128] = {0}; int n = httpd_req_recv(req, body, sizeof(body) - 1);
+    float kp, kd, pitch, roll;
+    if (n <= 0 || sscanf(body, "{\"kp\":%f,\"kd\":%f,\"pitch\":%f,\"roll\":%f}", &kp, &kd, &pitch, &roll) != 4 ||
+        !move_control_set_tuning(kp, kd, pitch, roll))
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid tuning");
+    return httpd_resp_sendstr(req, "ok");
+}
+
+/**
+ * @brief 接收网页指南针设置的绝对目标航向
+ * @param req HTTP 请求对象，JSON 字段 yaw 单位为度
+ * @return esp_err_t HTTP 响应结果
+ */
+static esp_err_t heading_handler(httpd_req_t *req)
+{
+    if (!s_control_enabled) return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "control disabled");
+    char body[64] = {0};
+    int length = httpd_req_recv(req, body, sizeof(body) - 1);
+    float yaw_deg;
+    if (length <= 0 || sscanf(body, "{\"yaw\":%f}", &yaw_deg) != 1)
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid heading");
+    move_control_set_heading_target(yaw_deg, 220);
+    return httpd_resp_sendstr(req, "ok");
+}
+
+/**
+ * @brief 显式启用网页底盘控制并把当前车头设为 0 度
+ * @param req HTTP 请求对象
+ * @return esp_err_t HTTP 响应结果
+ * @note 该操作本身只清零控制状态，不会启动电机。
+ */
+static esp_err_t control_start_handler(httpd_req_t *req)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!s_ready) {
+        xSemaphoreGive(s_lock);
+        return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "attitude not ready");
+    }
+    imu963ra_attitude_zero_current();
+    imu963ra_attitude_get(&s_attitude);
+    xSemaphoreGive(s_lock);
+    move_control_init();
+    chassis_hal_stop();
+    s_control_enabled = true;
     return httpd_resp_sendstr(req, "ok");
 }
 
@@ -173,6 +268,8 @@ static void imu_task(void *arg)
              valid_samples, bias[0], bias[1], bias[2]);
     imu963ra_attitude_init_horizontal(acc[0], acc[1], acc[2]);
     imu963ra_attitude_set_gyro_bias_dps(bias[0], bias[1], bias[2]);
+    /* 启动静止标定完成时的车头方向定义为用户坐标系 0°。 */
+    imu963ra_attitude_zero_current();
     int64_t previous = esp_timer_get_time();
     TickType_t wake = xTaskGetTickCount();
     uint32_t cycles = 0;
@@ -192,7 +289,7 @@ static void imu_task(void *arg)
             imu963ra_attitude_update_horizontal(sample.gyro_dps[0], sample.gyro_dps[1], sample.gyro_dps[2],
                                                 sample.accel_g[0], sample.accel_g[1], sample.accel_g[2],
                                                 sample.mag_gauss[0], sample.mag_gauss[1], sample.mag_gauss[2],
-                                                sample.mag_valid, dt);
+                                                false, dt);
             imu963ra_attitude_get(&s_attitude);
             s_ready = true;
             xSemaphoreGive(s_lock);
@@ -275,9 +372,17 @@ esp_err_t imu_web_service_init(void)
     const httpd_uri_t index = {.uri = "/", .method = HTTP_GET, .handler = index_handler};
     const httpd_uri_t api = {.uri = "/api/attitude", .method = HTTP_GET, .handler = attitude_handler};
     const httpd_uri_t zero = {.uri = "/api/zero", .method = HTTP_POST, .handler = zero_handler};
+    const httpd_uri_t move = {.uri = "/api/move", .method = HTTP_POST, .handler = move_handler};
+    const httpd_uri_t tuning = {.uri = "/api/tuning", .method = HTTP_POST, .handler = tuning_handler};
+    const httpd_uri_t heading = {.uri = "/api/heading", .method = HTTP_POST, .handler = heading_handler};
+    const httpd_uri_t control_start = {.uri = "/api/control/start", .method = HTTP_POST, .handler = control_start_handler};
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &index), TAG, "register index route");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &api), TAG, "register attitude route");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &zero), TAG, "register zero route");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &move), TAG, "register move route");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &tuning), TAG, "register tuning route");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &heading), TAG, "register heading route");
+    ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &control_start), TAG, "register control start route");
     s_web_initialized = true;
     return ESP_OK;
 }

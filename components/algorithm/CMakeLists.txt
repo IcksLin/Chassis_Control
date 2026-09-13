@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "chassis_hal.c"
+        "move_control.c"
         "imu963ra_attitude.c"
         "fusion/src/FusionAhrs.c"
         "fusion/src/FusionBias.c"

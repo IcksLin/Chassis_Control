@@ -14,7 +14,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "imu963ra.h"
+#include "board_rgb.h"
 #include "motor_board_uart.h"
+#include "move_control.h"
 #include "imu_web_runtime.h"
 
 #define MOTOR_UART_NUM 1
@@ -46,6 +48,10 @@ static void forward_task(void *arg)
     TickType_t wake = xTaskGetTickCount();
     while (true) {
         chassis_wheel_speeds_t command = {0};
+        imu_motion_state_t motion;
+        if (imu_runtime_get_motion_state(&motion) && move_control_update(motion.yaw_deg, motion.gyro_z_dps,
+                                                                          motion.roll_deg, motion.pitch_deg, &command))
+            (void)chassis_hal_set_wheel_speeds(&command);
         chassis_hal_get_motor_commands(&command, NULL);
         motor_board_uart_set_speeds(command.speed_mm_s);
         xTaskDelayUntil(&wake, pdMS_TO_TICKS(FORWARD_PERIOD_MS));
@@ -135,6 +141,7 @@ static void console_task(void *arg)
 esp_err_t chassis_runtime_init_peripherals(void)
 {
     if (s_peripherals_initialized) return ESP_OK;
+    ESP_RETURN_ON_ERROR(board_rgb_init_off(), TAG, "board RGB peripheral initialization");
     ESP_RETURN_ON_ERROR(imu963ra_init(), TAG, "IMU peripheral initialization");
     ESP_LOGI(TAG, "IMU963RA found at 0x%02x; SDA GPIO8, SCL GPIO9", imu963ra_address());
     const motor_board_uart_config_t config = {
@@ -158,6 +165,7 @@ esp_err_t chassis_runtime_init_services(void)
     if (!s_peripherals_initialized) return ESP_ERR_INVALID_STATE;
     if (s_services_initialized) return ESP_OK;
     ESP_RETURN_ON_ERROR(chassis_hal_init(WHEEL_DIRECTION, COMMAND_TIMEOUT_MS), TAG, "HAL service initialization");
+    move_control_init();
     ESP_RETURN_ON_ERROR(imu_runtime_service_init(), TAG, "IMU state service initialization");
     ESP_RETURN_ON_ERROR(wifi_service_init(), TAG, "Wi-Fi service initialization");
     ESP_RETURN_ON_ERROR(imu_web_service_init(), TAG, "IMU web service initialization");
